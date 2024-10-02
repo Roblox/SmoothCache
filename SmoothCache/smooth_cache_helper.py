@@ -4,8 +4,7 @@ from typing import Dict, Any, Optional
 import torch
 import torch.nn as nn
 
-# Import BasicTransformerBlock from the module where it's defined
-# Adjust the import path according to your project structure
+# Import BasicTransformerBlock from the Diffusers library
 from diffusers.models.attention import BasicTransformerBlock
 
 class SmoothCacheHelper:
@@ -17,8 +16,9 @@ class SmoothCacheHelper:
             'cache_interval': 1,  # Default caching interval
             'skip_mode': 'uniform',  # Caching policy
         }
-        self.current_step = 0
-        self.start_step = None
+        # Use per-module step counters
+        self.current_steps = {}
+        self.start_steps = {}
 
     def enable(self):
         self.reset_state()
@@ -33,15 +33,14 @@ class SmoothCacheHelper:
         self.params['skip_mode'] = skip_mode
 
     def reset_state(self):
-        self.current_step = 0
-        self.start_step = None
+        self.current_steps = {}
+        self.start_steps = {}
         self.cache.clear()
 
-    def is_skip_step(self):
-        if self.start_step is None:
-            self.start_step = self.current_step
-
-        # return (self.current_step - self.start_step) % self.params['cache_interval'] != 0
+    def is_skip_step(self, full_name):
+        if self.start_steps[full_name] is None:
+            self.start_steps[full_name] = self.current_steps[full_name]
+        # return (self.current_steps[full_name] - self.start_steps[full_name]) % self.params['cache_interval'] != 0
         return False  # Extend with other skip modes if needed
 
     def wrap_attn1_modules(self):
@@ -67,15 +66,23 @@ class SmoothCacheHelper:
 
     def create_wrapped_forward(self, full_name, original_forward):
         def wrapped_forward(*args, **kwargs):
-            if self.is_skip_step() and full_name in self.cache:
+            # Initialize step counters for this module if not already done
+            if full_name not in self.current_steps:
+                self.current_steps[full_name] = 0
+                self.start_steps[full_name] = None
+
+            # Increment current_step for this module
+            self.current_steps[full_name] += 1
+
+            if self.is_skip_step(full_name) and full_name in self.cache:
                 # Use cached output during skipped steps
-                print("returning cache result for ",  full_name, " at step ", self.current_step)
+                print("returning cache result for ",  full_name, " at step ", self.current_steps)
                 return self.cache[full_name]
             else:
                 # Compute output and cache it
                 output = original_forward(*args, **kwargs)
                 self.cache[full_name] = output
-                print("returning normal result for ",  full_name, " at step ", self.current_step)
+                print("returning normal result for ",  full_name, " at step ", self.current_steps)
                 return output
         return wrapped_forward
 
@@ -89,8 +96,3 @@ class SmoothCacheHelper:
             else:
                 return None
         return module
-
-    def step(self):
-        # Update current step
-        self.current_step += 1
-

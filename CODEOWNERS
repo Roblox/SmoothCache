@@ -5,4 +5,5 @@
 # For more details: https://roblox.atlassian.net/wiki/spaces/ENGEFF/pages/1549927831/Using+CODEOWNERS+files
 
 # Default catch-all for anything that isn't more specifically owned.
-*    @roblox/eescm  # http://go/codeowners
+
+* @roblox/ml-runtime

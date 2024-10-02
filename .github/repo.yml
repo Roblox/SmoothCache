@@ -1,2 +1,3 @@
-#See (http://go/repository-config-as-code) for more details
-maintainer: roblox/eescm
+# Which github team is the maintainer of the repository. Maintainers have special permissions and are responsible for
+# the code in the repository in all meaningful ways. They may use CODEOWNERS to delegate ownership of sub-folders
+maintainer: roblox/ml-runtime

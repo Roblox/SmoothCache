@@ -3,7 +3,6 @@
 from typing import Dict, Any, Optional, List, Union, Type
 import torch
 import torch.nn as nn
-from diffusers.models.attention import BasicTransformerBlock
 
 class SmoothCacheHelper:
     def __init__(
@@ -46,8 +45,8 @@ class SmoothCacheHelper:
     def is_skip_step(self, full_name):
         if full_name not in self.start_steps or self.start_steps[full_name] is None:
             self.start_steps[full_name] = self.current_steps[full_name]
-        return False if self.current_steps[full_name] % 2 else True  # Extend with other skip modes if needed
-        # return False  # Extend with other skip modes if needed
+        # return False if self.current_steps[full_name] % 2 else True  # Extend with other skip modes if needed
+        return False  # Extend with other skip modes if needed
 
     def wrap_components(self):
         # Wrap specified components within each block class
@@ -87,13 +86,13 @@ class SmoothCacheHelper:
 
             if self.is_skip_step(full_name) and full_name in self.cache:
                 # Use cached output during skipped steps
-                print("returning cache result for ",  full_name, " at step ", self.current_steps)
+                print("returning cache result for ",  full_name, " at step ", self.current_steps[full_name])
                 return self.cache[full_name]
             else:
                 # Compute output and cache it
                 output = original_forward(*args, **kwargs)
                 self.cache[full_name] = output
-                print("returning normal result for ",  full_name, " at step ", self.current_steps)
+                print("returning normal result for ",  full_name, " at step ", self.current_steps[full_name])
                 return output
         return wrapped_forward
 

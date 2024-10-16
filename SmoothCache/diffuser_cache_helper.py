@@ -1,12 +1,19 @@
 # SmoothCache/diffuser_cache_helper.py
 
 from .smooth_cache_helper import SmoothCacheHelper
-from diffusers.models.attention import BasicTransformerBlock
+
+try:
+    from diffusers.models.attention import BasicTransformerBlock
+except ImportError:
+    print("Warning: Diffusers library is not installed. DiffuserCacheHelper cannot be used.")
+    BasicTransformerBlock = None
 
 class DiffuserCacheHelper(SmoothCacheHelper):
     def __init__(self, model, cache_interval=1, skip_mode='uniform'):
+        if BasicTransformerBlock is None:
+            raise ImportError("Diffusers library is not installed. DiffuserCacheHelper cannot be used.")
         block_classes = BasicTransformerBlock
-        components_to_wrap = ['attn1',  'ff']
+        components_to_wrap = ['attn1']
         super().__init__(
             model=model,
             block_classes=block_classes,

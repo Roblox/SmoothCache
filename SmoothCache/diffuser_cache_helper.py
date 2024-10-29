@@ -9,7 +9,7 @@ except ImportError:
     BasicTransformerBlock = None
 
 class DiffuserCacheHelper(SmoothCacheHelper):
-    def __init__(self, model, cache_interval=1, skip_mode='uniform'):
+    def __init__(self, model, schedule):
         if BasicTransformerBlock is None:
             raise ImportError("Diffusers library is not installed. DiffuserCacheHelper cannot be used.")
         block_classes = BasicTransformerBlock
@@ -18,4 +18,5 @@ class DiffuserCacheHelper(SmoothCacheHelper):
             model=model,
             block_classes=block_classes,
             components_to_wrap=components_to_wrap,
+            schedule=schedule
         )

@@ -63,7 +63,7 @@ class SmoothCacheHelper:
     def is_skip_step(self, full_name):
         # Extract component name and block index from full_name
         names = full_name.split('.')
-        component_name = names[-1]  # e.g., 'attn' or 'mlp'
+        component_name = names[-1]  # e.g., 'attn' or 'mlp', etc.
         block_index = names[-2]     # e.g., '0', '1', '2', etc.
         schedule_key_with_index = f"{component_name}-{block_index}"
         schedule_key_without_index = component_name
@@ -76,25 +76,19 @@ class SmoothCacheHelper:
             # Use the general schedule for the component
             schedule_key = schedule_key_without_index
         else:
-            # If neither key is in the schedule, do not skip
             return False
 
-        # Get the current timestep for this module
-        current_step = self.current_steps.get(full_name, 0) - 1  # Adjust index to start from 0
-
-        # Retrieve the schedule list for the selected key
+        # Get the current timestep for this module by # Adjust index to start from 0
+        current_step = self.current_steps.get(full_name, 0) - 1  
         schedule_list = self.schedule[schedule_key]
 
         if current_step < 0 or current_step >= len(schedule_list):
-            # If current_step is out of bounds, do not skip
             return False
 
         # 1 means run normally, 0 means use cached result (skip computation)
         skip = schedule_list[current_step] == 0
 
         return skip
-
-
 
     def wrap_components(self):
         # Wrap specified components within each block class
@@ -103,7 +97,6 @@ class SmoothCacheHelper:
                 self.wrap_block_components(block, block_name)
 
     def wrap_block_components(self, block, block_name):
-        #TODO: verify block exists
         if len(self.components_to_wrap) > 0:
             for comp_name in self.components_to_wrap:
                 if hasattr(block, comp_name):

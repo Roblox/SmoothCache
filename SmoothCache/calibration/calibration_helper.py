@@ -17,7 +17,8 @@ def rel_l1_loss(prev_output, cur_output):
         cur_output (torch.Tensor): Current layer output. Shape: [batch_size, channels, ...]
     
     Returns:
-        float: Relative L1 loss across the entire batch, on flattened inputs.
+        float: Relative L1 loss across the entire batch, on flattened inputs, 
+        Since DiTPipeline will duplicate the batch anyway. 
     """
     output_diff = prev_output.float() - cur_output.float()  
     numerator = torch.norm(output_diff, p=1)               
@@ -182,41 +183,83 @@ class CalibrationHelper:
 
     def generate_schedule(self):
         """
-        Generate a schedule from the collected calibration results.
+        Generate one averaged schedule for each component type (e.g. "attn", "mlp") using
+        only the last sublist of errors (j = self.calibration_lookahead - 1).
+        - We'll gather all blocks with the same component type,
+        e.g. "transformer_blocks.2.attn1" => "attn"
+        - We'll average their error curves (the last sublist in calibration_results) by timestep.
+        - We'll compare that averaged error to self.calibration_threshold to produce 0/1 decisions.
+        - We forcibly set the first self.calibration_lookahead timesteps to 1 (always compute).
         """
-        schedule = {}
-        for full_name, errors in self.calibration_results.items():
-            if not errors:
-                # Default to always run if no errors collected
-                key = self._get_schedule_key(full_name)
-                schedule[key] = [1]
-                continue
-            errors = errors[self.calibration_lookahead-1]
-            # how to fill in the first 3 entries in the schedule json?
-            errors = [1] * self.calibration_lookahead + errors
-            # avg_error = sum(errors) / len(errors)
-            # threshold = avg_error
-            # threshold = statistics.median(errors)
+        from collections import defaultdict
+        import re
 
-            threshold = self.calibration_threshold            
-            print(full_name, threshold)
-            final_schedule = [1 if e > threshold else 0 for e in errors]
-            key = self._get_schedule_key(full_name)
-            schedule[key] = final_schedule
-        return schedule
+        # Group the last-sublist-of-errors by component type
+        component_type_to_block = defaultdict(list)
 
-    def _get_schedule_key(self, full_name: str) -> str:
-        """
-        Convert a full_name like "transformer.transformer_blocks.0.attn1" into a schedule key like "attn-0".
-        """
-        names = full_name.split('.')
-        component_full = names[-1]  # e.g. 'attn1'
-        block_index = names[-2]     # e.g. '0'
+        # We only calculate error curve with max lookahead
+        j_index = self.calibration_lookahead - 1
 
-        match = re.match(r"([a-zA-Z]+)", component_full)
-        component_base = match.group(1) if match else component_full
+        for full_name, error_sublists in self.calibration_results.items():
+            # error_sublists is a list of length = calibration_lookahead
+            # We specifically want error_sublists[j_index]
+            if j_index >= len(error_sublists):
+                continue  # or skip if it doesn't exist for some reason
 
-        return f"{component_base}-{block_index}"
+            sublist_errors = error_sublists[j_index]  # This is a list of floats, length = #timesteps for that block
+
+            # Extract the component type
+            # e.g. "transformer_blocks.2.attn1" -> "attn"
+            names = full_name.split('.')
+            component_full = names[-1]  # e.g. 'attn1'
+            match = re.match(r"([a-zA-Z]+)", component_full)
+            component_type = match.group(1) if match else component_full  # e.g. "attn", "mlp"
+
+            component_type_to_block[component_type].append(sublist_errors)
+
+        # Produce a schedule for each component type
+        final_schedules = {}
+
+        for comp_type, list_of_error_lists in component_type_to_block.items():
+            # list_of_error_lists is like [ [err_blockA], [err_blockB], ... ]
+
+            # find the max length among them
+            max_len = 0
+            for errs in list_of_error_lists:
+                if len(errs) > max_len:
+                    max_len = len(errs)
+
+            # We'll sum across blocks at each timestep
+            sum_at_timestep = [0.0] * max_len
+            count_at_timestep = [0]   * max_len
+
+            # Accumulate
+            for err_list in list_of_error_lists:
+                for i, val in enumerate(err_list):
+                    sum_at_timestep[i] += val
+                    count_at_timestep[i] += 1
+
+            # Now compute average
+            avg_errors = []
+            for i in range(max_len):
+                if count_at_timestep[i] > 0:
+                    avg_val = sum_at_timestep[i] / count_at_timestep[i]
+                else:
+                    avg_val = 0.0  # or skip
+                avg_errors.append(avg_val)
+            print(avg_errors)
+            # Build schedule
+            schedule_list = []
+            for i in range(max_len):
+                # Compare to threshold
+                val = avg_errors[i]
+                decision = 1 if val > self.calibration_threshold else 0
+                schedule_list.append(decision)
+
+            final_schedules[comp_type] = [1] * self.calibration_lookahead + schedule_list
+            # print(final_schedules)
+
+        return final_schedules
 
     def get_module_by_name(self, model, full_name):
         """

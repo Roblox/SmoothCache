@@ -33,9 +33,9 @@ def main():
     # Disable calibration and generate schedule
     calibration_helper.disable()
 
-    print("Calibration complete. Schedule saved to smoothcache_schedules/dit_schedule.json")
+    print("Calibration complete. Schedule saved to smoothcache_schedules/diffuser_schedule.json")
 
-    breakpoint()
+    # breakpoint()
     images[0].save('generated_image_cached.png')    
 
 if __name__ == "__main__":

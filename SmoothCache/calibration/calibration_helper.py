@@ -34,6 +34,7 @@ class CalibrationHelper:
         components_to_wrap: List[str],
         calibration_lookahead: int = 3,
         calibration_threshold: float = 0.0,
+        schedule_length: int = 50,
         log_file: str = "calibration_schedule.json"
     ):
         """
@@ -51,6 +52,7 @@ class CalibrationHelper:
         self.components_to_wrap = components_to_wrap
         self.calibration_lookahead = calibration_lookahead
         self.calibration_threshold = calibration_threshold
+        self.schedule_length = schedule_length
         self.log_file = log_file
 
         # Tracking original forward methods
@@ -171,7 +173,6 @@ class CalibrationHelper:
                     # Compute error
                     error = rel_l1_loss(prev_output, current_output)
                     self.calibration_results[full_name][j].append(error)
-            print(len(self.calibration_results[full_name][j]))
 \
             # Update previous outputs
             self.previous_layer_outputs[full_name].insert(0, current_output.detach().clone())
@@ -192,13 +193,13 @@ class CalibrationHelper:
         and group all blocks that share that same component_full.
 
         Each group yields 3 arrays: row0, row1, row2, averaged across all blocks,
-        then scanned to produce a 50-length schedule.
+        then scanned to produce the schedule.
 
         Returns:
             A dictionary like:
             {
-            'attn1': [50-length schedule],
-            'mlp1':  [50-length schedule],
+            'attn1': [schedule_length schedule],
+            'mlp1':  [schedule_length schedule],
             ...
             }
         """
@@ -225,7 +226,7 @@ class CalibrationHelper:
 
         final_schedules = {}
 
-        # Step B: For each component_full, average row0, row1, row2, then produce 50-length schedule
+        # Step B: For each component_full, average row0, row1, row2, then produce schedule
         for component_full, row_lists in component_to_rows.items():
             row0_arrays = row_lists[0]  # list of np arrays for row0
             row1_arrays = row_lists[1]  # row1
@@ -271,7 +272,7 @@ class CalibrationHelper:
     def _scan_3row_sublists(self, row0_list, row1_list, row2_list, threshold):
         """
         Based on your scanning logic:
-        - We produce a schedule of length 50.
+        - We produce a schedule of length schedule_length.
         - schedule[0] = 1
         - For each i in [1..49], we check row2[i-1], row1[i-1], row0[i-1] (if in range)
         * if row2[i-1] <= threshold => schedule i=1, i+1..i+3=0, skip i+4
@@ -281,11 +282,10 @@ class CalibrationHelper:
         - Finally override schedule[49] = 1
         """
 
-        schedule = [None]*50
+        schedule = [None] * self.schedule_length
         i = 0
 
-        while i < 50:
-            # breakpoint()
+        while i < self.schedule_length:
             idx = i  # to read from row2, row1, row0
             used = False
 
@@ -294,7 +294,7 @@ class CalibrationHelper:
                 if row2_list[idx] <= threshold:
                     schedule[i] = 1
                     for skip_step in (i+1, i+2, i+3):
-                        if skip_step < 50:
+                        if skip_step < self.schedule_length:
                             schedule[skip_step] = 0
                     i += 4
                     used = True
@@ -302,14 +302,14 @@ class CalibrationHelper:
                 if row1_list[idx] <= threshold:
                     schedule[i] = 1
                     for skip_step in (i+1, i+2):
-                        if skip_step < 50:
+                        if skip_step < self.schedule_length:
                             schedule[skip_step] = 0
                     i += 3
                     used = True
             if not used and idx < len(row0_list):
                 if row0_list[idx] <= threshold:
                     schedule[i] = 1
-                    if i+1 < 50:
+                    if i+1 < self.schedule_length:
                         schedule[i+1] = 0
                     i += 2
                     used = True
@@ -325,7 +325,7 @@ class CalibrationHelper:
         schedule[-1] = 1
 
         # fill any None with 1
-        for x in range(50):
+        for x in range(self.schedule_length):
             if schedule[x] is None:
                 schedule[x] = 1
 

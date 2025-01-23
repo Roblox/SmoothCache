@@ -15,6 +15,7 @@ class DiffuserCalibrationHelper(CalibrationHelper):
         model: nn.Module,
         calibration_lookahead: int = 3,
         calibration_threshold: float = 0.0,
+        schedule_length: int = 50,
         log_file: str = "calibration_schedule.json"
     ):
         """
@@ -24,6 +25,7 @@ class DiffuserCalibrationHelper(CalibrationHelper):
             model (nn.Module): The model to wrap (e.g., pipe.transformer).
             calibration_lookahead (int): Steps to look back for error calculation.
             calibration_threshold (float): Cutoff L1 error value to enable caching.
+            schedule_length (int): Length of the generated schedule, 1:1 mapped to pipeline timesteps
             log_file (str): Path to save the generated schedule JSON.
 
         Raises:
@@ -41,5 +43,6 @@ class DiffuserCalibrationHelper(CalibrationHelper):
             components_to_wrap=components_to_wrap,
             calibration_lookahead=calibration_lookahead,
             calibration_threshold=calibration_threshold,
+            schedule_length=schedule_length,
             log_file=log_file
         )

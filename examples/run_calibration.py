@@ -13,7 +13,7 @@ def main():
     calibration_helper = DiffuserCalibrationHelper(
         model=pipe.transformer,
         calibration_lookahead=3,
-        calibration_threshold=0.2,
+        calibration_threshold=0.15,
         log_file="smoothcache_schedules/diffuser_schedule.json"
     )
 

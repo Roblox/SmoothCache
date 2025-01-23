@@ -183,83 +183,154 @@ class CalibrationHelper:
 
     def generate_schedule(self):
         """
-        Generate one averaged schedule for each component type (e.g. "attn", "mlp") using
-        only the last sublist of errors (j = self.calibration_lookahead - 1).
-        - We'll gather all blocks with the same component type,
-        e.g. "transformer_blocks.2.attn1" => "attn"
-        - We'll average their error curves (the last sublist in calibration_results) by timestep.
-        - We'll compare that averaged error to self.calibration_threshold to produce 0/1 decisions.
-        - We forcibly set the first self.calibration_lookahead timesteps to 1 (always compute).
+        Generate schedules for each exact component name (e.g. 'attn1', 'mlp1', etc.)
+        using the 3-row scanning logic.
+
+        For example, if self.calibration_results has keys:
+        'transformer_blocks.0.attn1', 'transformer_blocks.1.attn1', 'transformer_blocks.0.mlp1', ...
+        we parse out the last part (e.g. 'attn1', 'mlp1') as `component_full`,
+        and group all blocks that share that same component_full.
+
+        Each group yields 3 arrays: row0, row1, row2, averaged across all blocks,
+        then scanned to produce a 50-length schedule.
+
+        Returns:
+            A dictionary like:
+            {
+            'attn1': [50-length schedule],
+            'mlp1':  [50-length schedule],
+            ...
+            }
         """
+        import numpy as np
         from collections import defaultdict
-        import re
 
-        # Group the last-sublist-of-errors by component type
-        component_type_to_block = defaultdict(list)
+        # Dictionary: component_name -> [ list_of_arrays_row0, list_of_arrays_row1, list_of_arrays_row2 ]
+        component_to_rows = defaultdict(lambda: [[], [], []])
 
-        # We only calculate error curve with max lookahead
-        j_index = self.calibration_lookahead - 1
+        # Step A: Collect row0, row1, row2 arrays by exact component name
+        for full_name, sublists in self.calibration_results.items():
+            if len(sublists) < self.calibration_lookahead:
+                # skip if incomplete
+                continue
 
-        for full_name, error_sublists in self.calibration_results.items():
-            # error_sublists is a list of length = calibration_lookahead
-            # We specifically want error_sublists[j_index]
-            if j_index >= len(error_sublists):
-                continue  # or skip if it doesn't exist for some reason
+            # e.g. 'transformer_blocks.0.attn1' => component_full='attn1'
+            component_full = full_name.split('.')[-1]  # e.g. 'attn1'
 
-            sublist_errors = error_sublists[j_index]  # This is a list of floats, length = #timesteps for that block
+            # sublists is e.g. [row0_list, row1_list, row2_list]
+            # convert each to numpy array
+            for row_idx in range(len(sublists)):
+                arr = np.array(sublists[row_idx], dtype=float)
+                component_to_rows[component_full][row_idx].append(arr)
 
-            # Extract the component type
-            # e.g. "transformer_blocks.2.attn1" -> "attn"
-            names = full_name.split('.')
-            component_full = names[-1]  # e.g. 'attn1'
-            match = re.match(r"([a-zA-Z]+)", component_full)
-            component_type = match.group(1) if match else component_full  # e.g. "attn", "mlp"
-
-            component_type_to_block[component_type].append(sublist_errors)
-
-        # Produce a schedule for each component type
         final_schedules = {}
 
-        for comp_type, list_of_error_lists in component_type_to_block.items():
-            # list_of_error_lists is like [ [err_blockA], [err_blockB], ... ]
+        # Step B: For each component_full, average row0, row1, row2, then produce 50-length schedule
+        for component_full, row_lists in component_to_rows.items():
+            row0_arrays = row_lists[0]  # list of np arrays for row0
+            row1_arrays = row_lists[1]  # row1
+            row2_arrays = row_lists[2]  # row2
 
-            # find the max length among them
-            max_len = 0
-            for errs in list_of_error_lists:
-                if len(errs) > max_len:
-                    max_len = len(errs)
+            avg0_list = self._average_arrays(row0_arrays)  # length ~ 49
+            avg1_list = self._average_arrays(row1_arrays)  # length ~ 48
+            avg2_list = self._average_arrays(row2_arrays)  # length ~ 47
 
-            # We'll sum across blocks at each timestep
-            sum_at_timestep = [0.0] * max_len
-            count_at_timestep = [0]   * max_len
+            schedule = self._scan_3row_sublists(avg0_list, avg1_list, avg2_list, self.calibration_threshold)
+            final_schedules[component_full] = schedule
 
-            # Accumulate
-            for err_list in list_of_error_lists:
-                for i, val in enumerate(err_list):
-                    sum_at_timestep[i] += val
-                    count_at_timestep[i] += 1
-
-            # Now compute average
-            avg_errors = []
-            for i in range(max_len):
-                if count_at_timestep[i] > 0:
-                    avg_val = sum_at_timestep[i] / count_at_timestep[i]
-                else:
-                    avg_val = 0.0  # or skip
-                avg_errors.append(avg_val)
-            print(avg_errors)
-            # Build schedule
-            schedule_list = []
-            for i in range(max_len):
-                # Compare to threshold
-                val = avg_errors[i]
-                decision = 1 if val > self.calibration_threshold else 0
-                schedule_list.append(decision)
-
-            final_schedules[comp_type] = [1] * self.calibration_lookahead + schedule_list
-            # print(final_schedules)
-
+        print(final_schedules)
         return final_schedules
+
+    def _average_arrays(self, array_list):
+        """
+        Given a list of 1D numpy arrays of potentially different lengths, 
+        compute the average across them at each index. 
+        Returns a Python list of floats for the average.
+        e.g. if array_list = [arrA(len=49), arrB(len=49), arrC(len=48), ...] 
+        we find max_len, sum, count -> average.
+        """
+        import numpy as np
+        if not array_list:
+            return []
+
+        max_len = max(len(arr) for arr in array_list)
+        sum_vals = np.zeros(max_len, dtype=float)
+        count_vals = np.zeros(max_len, dtype=int)
+
+        for arr in array_list:
+            for i, val in enumerate(arr):
+                sum_vals[i] += val
+                count_vals[i] += 1
+
+        avg_arr = np.zeros(max_len, dtype=float)
+        for i in range(max_len):
+            if count_vals[i] > 0:
+                avg_arr[i] = sum_vals[i] / count_vals[i]
+        return avg_arr.tolist()
+
+    def _scan_3row_sublists(self, row0_list, row1_list, row2_list, threshold):
+        """
+        Based on your scanning logic:
+        - We produce a schedule of length 50.
+        - schedule[0] = 1
+        - For each i in [1..49], we check row2[i-1], row1[i-1], row0[i-1] (if in range)
+        * if row2[i-1] <= threshold => schedule i=1, i+1..i+3=0, skip i+4
+        * else if row1[i-1] <= threshold => schedule i=1, i+1..i+2=0, skip i+3
+        * else if row0[i-1] <= threshold => schedule i=1, i+1=0, skip i+2
+        * else => schedule i=1, skip i+1
+        - Finally override schedule[49] = 1
+        """
+
+        schedule = [None]*50
+        i = 0
+
+        while i < 50:
+            # breakpoint()
+            idx = i  # to read from row2, row1, row0
+            used = False
+
+            # check row2 if idx < len(row2_list)
+            if idx < len(row2_list):
+                if row2_list[idx] <= threshold:
+                    schedule[i] = 1
+                    for skip_step in (i+1, i+2, i+3):
+                        if skip_step < 50:
+                            schedule[skip_step] = 0
+                    i += 4
+                    used = True
+            if not used and idx < len(row1_list):
+                if row1_list[idx] <= threshold:
+                    schedule[i] = 1
+                    for skip_step in (i+1, i+2):
+                        if skip_step < 50:
+                            schedule[skip_step] = 0
+                    i += 3
+                    used = True
+            if not used and idx < len(row0_list):
+                if row0_list[idx] <= threshold:
+                    schedule[i] = 1
+                    if i+1 < 50:
+                        schedule[i+1] = 0
+                    i += 2
+                    used = True
+            if not used:
+                # fallback => schedule[i]=1
+                schedule[i] = 1
+                i += 1
+            # print(schedule)
+            # breakpoint()
+
+        # override schedule[49] = 1
+        schedule[0] = 1
+        schedule[-1] = 1
+
+        # fill any None with 1
+        for x in range(50):
+            if schedule[x] is None:
+                schedule[x] = 1
+
+        return schedule
+
 
     def get_module_by_name(self, model, full_name):
         """

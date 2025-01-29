@@ -25,6 +25,7 @@ def main():
 
     # Run pipeline normally
     words = ["Labrador retriever", "combination lock", "cassette player"]
+
     
     class_ids = pipe.get_label_ids(words)
 

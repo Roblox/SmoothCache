@@ -15,6 +15,7 @@
 """Helper Class for Diffusion Transformer Implemented at 
    https://github.com/huggingface/diffusers/tree/main/src/diffusers/pipelines/dit"""
 
+from typing import List, Optional
 from .smooth_cache_helper import SmoothCacheHelper
 
 try:

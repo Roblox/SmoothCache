@@ -12,6 +12,10 @@
 **Figure 1. Accelerating Diffusion Transformer inference across multiple modalities with 50 DDIM Steps on DiT-XL-256x256, 100 DPM-Solver++(3M) SDE steps for a 10s audio sample (spectrogram shown) on Stable Audio Open, 30 Rectified Flow steps on Open-Sora 480p 2s videos**
 
 
+# Updates
+SmoothCache now supports generating cache schedues using a zero-intrusion external helper. See [run_calibration.py](./examples/run_calibration.py) to find out how it generates a schedule compatible with [HuggingFace Diffusers DiTPipeline](https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/dit/pipeline_dit.py), without requiring any changes to Diffusers implementation!
+
+
 # Introduction
 We introduce **SmoothCache**, a straightforward acceleration technique for DiT architecture models, that's both **training-free, flexible and performant**. By leveraging layer-wise representation error, our method identifies redundancies in the diffusion process, generates a static caching scheme to reuse output featuremaps and therefore reduces the need for computationally expensive operations. This solution works across different models and modalities, can be easily dropped into existing Diffusion Transformer pipelines, can be stacked on different solvers, and requires no additional training or datasets. **SmoothCache** consistently outperforms various solvers designed to accelerate the diffusion process, while matching or surpassing the performance of existing modality-specific caching techniques.
 
@@ -26,7 +30,7 @@ We introduce **SmoothCache**, a straightforward acceleration technique for DiT a
 pip install SmoothCache
 ```
 
-### Usage
+### Usage - Inference
 
 Inspired by [DeepCache](https://raw.githubusercontent.com/horseee/DeepCache), we have implemented drop-in SmoothCache helper classes that easily applies to [Huggingface Diffuser DiTPipeline](https://github.com/huggingface/diffusers/tree/main/src/diffusers/pipelines/dit), and [original DiT implementations](https://github.com/facebookresearch/DiT).
 
@@ -137,6 +141,15 @@ cache_helper.disable()
 # Save and display images:
 save_image(samples, "sample.png", nrow=4, normalize=True, value_range=(-1, 1))
 ```
+
+### Usage - Cache Schedule Generation
+See [run_calibration.py](./examples/run_calibration.py), which generates schedule for the self-attention module ([attn1](https://github.com/huggingface/diffusers/blob/37a5f1b3b69ed284086fb31fb1b49668cba6c365/src/diffusers/models/attention.py#L380)) 
+from Diffusers [BasicTransformerBlock](https://github.com/huggingface/diffusers/blob/37a5f1b3b69ed284086fb31fb1b49668cba6c365/src/diffusers/models/attention.py#L261C7-L261C28) block. 
+
+Note that only self-attention, and not cross-attention, is enabled in the stock config of Diffusers [DiT module](https://github.com/huggingface/diffusers/blob/37a5f1b3b69ed284086fb31fb1b49668cba6c365/src/diffusers/models/transformers/dit_transformer_2d.py#L72-L73). We leave this behavior
+as-is for the purpose of minimal intrusion. 
+
+We welcome all contributions aimed at expending SmoothCache's model coverage and module coverage. 
 
 ## Visualization
 

@@ -9,11 +9,24 @@ try:
     from .diffuser_cache_helper import DiffuserCacheHelper
     __all__.append('DiffuserCacheHelper')
 except ImportError:
-    pass  # If import fails, we don't add it to __all__
+    print("Warning: DiffuserCacheHelper not imported. Ensure Diffusers is installed.")
 
 # Try to import DiTCacheHelper
 try:
     from .dit_cache_helper import DiTCacheHelper
     __all__.append('DiTCacheHelper')
 except ImportError:
-    pass  # If import fails, we don't add it to __all__
+    print("Warning: DiTCacheHelper not imported. Ensure necessary dependencies are installed.")
+
+# Try to import calibration helpers
+try:
+    from .calibration.calibration_helper import CalibrationHelper
+    __all__.append('CalibrationHelper')
+except ImportError:
+    print("Warning: CalibrationHelper not imported.")
+
+try:
+    from .calibration.diffuser_calibration_helper import DiffuserCalibrationHelper
+    __all__.append('DiffuserCalibrationHelper')
+except ImportError:
+    print("Warning: DiffuserCalibrationHelper not imported. Ensure Diffusers is installed.")

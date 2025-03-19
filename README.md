@@ -13,6 +13,11 @@
 
 
 # Updates
+
+## Release v0.1
+
+[View release notes for v0.1](https://github.com/Roblox/SmoothCache/releases/tag/v0.1)
+
 SmoothCache now supports generating cache schedues using a zero-intrusion external helper. See [run_calibration.py](./examples/run_calibration.py) to find out how it generates a schedule compatible with [HuggingFace Diffusers DiTPipeline](https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/dit/pipeline_dit.py), without requiring any changes to Diffusers implementation!
 
 
@@ -153,7 +158,9 @@ We welcome all contributions aimed at expending SmoothCache's model coverage and
 
 ## Visualization
 
-(WIP)
+### 256x256 Image Generation Task
+
+![Mosaic Image](assets/dit-mosaic.png)
 
 
 

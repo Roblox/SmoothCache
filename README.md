@@ -32,7 +32,7 @@ We introduce **SmoothCache**, a straightforward acceleration technique for DiT a
 
 ### Install
 ```bash
-pip install SmoothCache
+pip install dit-smoothcache
 ```
 
 ### Usage - Inference
@@ -45,7 +45,7 @@ from SmoothCache import <DESIREDCacheHelper>
 cache_helper = DiffuserCacheHelper(<MODEL_HANDLER>, schedule=schedule)
 cache_helper.enable()
 # Original sampler code.
-cache_helper.eisable()
+cache_helper.disable()
 ```
 
 #### Usage example with Huggingface Diffuser DiTPipeline:

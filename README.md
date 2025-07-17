@@ -33,7 +33,6 @@ SmoothCache now supports generating cache schedues using a zero-intrusion extern
 # Introduction
 We introduce **SmoothCache**, a straightforward acceleration technique for DiT architecture models, that's both **training-free, flexible and performant**. By leveraging layer-wise representation error, our method identifies redundancies in the diffusion process, generates a static caching scheme to reuse output featuremaps and therefore reduces the need for computationally expensive operations. This solution works across different models and modalities, can be easily dropped into existing Diffusion Transformer pipelines, can be stacked on different solvers, and requires no additional training or datasets. **SmoothCache** consistently outperforms various solvers designed to accelerate the diffusion process, while matching or surpassing the performance of existing modality-specific caching techniques.
 
-```> 🥯[[Arxiv]](https://arxiv.org/abs/2411.10510)```
 
 ![Illustration of SmoothCache. When the layer representation loss obtained from the calibration pass is below some threshold α, the corresponding layer is cached and used in place of the same computation on a future timestep. The figure on the left shows how the layer representation error impacts whether certain layers are eligible for caching. The error of the attention (attn) layer is higher in earlier timesteps, so our schedule caches the later timesteps accordingly. The figure on the right shows the application of the caching schedule to the DiT-XL architecture. The output of the attn layer at time t − 1 is cached and re-used in place of computing FFN t − 2, since the corresponding error is below α. This cached output is introduced in the model using the properties of the residual connection.](assets/SmoothCache2.png)
 
@@ -191,13 +190,12 @@ SmoothCache is licensed under the [Apache-2.0](LICENSE) license.
 
 ## Bibtex
 ```
-@misc{liu2024smoothcacheuniversalinferenceacceleration,
-      title={SmoothCache: A Universal Inference Acceleration Technique for Diffusion Transformers}, 
-      author={Joseph Liu and Joshua Geddes and Ziyu Guo and Haomiao Jiang and Mahesh Kumar Nandwana},
-      year={2024},
-      eprint={2411.10510},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2411.10510}, 
+@InProceedings{Liu_2025_CVPR,
+    author    = {Liu, Joseph and Geddes, Joshua and Guo, Ziyu and Jiang, Haomiao and Nandwana, Mahesh Kumar},
+    title     = {SmoothCache: A Universal Inference Acceleration Technique for Diffusion Transformers},
+    booktitle = {Proceedings of the Computer Vision and Pattern Recognition Conference (CVPR) Workshops},
+    month     = {June},
+    year      = {2025},
+    pages     = {3229-3238}
 }
 ```

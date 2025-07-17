@@ -1,3 +1,12 @@
+# SmoothCache: A Universal Inference Acceleration Technique for Diffusion Transformers
+
+<div align="center" style="line-height: 1;">
+    <a href="https://arxiv.org/pdf/2411.10510" target="_blank"><img src="https://img.shields.io/badge/ArXiv-Paper-b5212f.svg?logo=arxiv" height="22px"></a>
+  <a href="https://github.com/Roblox/SmoothCache/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-green" alt="License"></a>
+<div align="center" style="line-height: 1;">
+</div>
+
+
 <!-- <div align="center">
   <img src="https://github.com/Roblox/SmoothCache/blob/main/assets/TeaserFigureFlat.png" width="100%" ></img>
   <br>
@@ -24,7 +33,7 @@ SmoothCache now supports generating cache schedues using a zero-intrusion extern
 # Introduction
 We introduce **SmoothCache**, a straightforward acceleration technique for DiT architecture models, that's both **training-free, flexible and performant**. By leveraging layer-wise representation error, our method identifies redundancies in the diffusion process, generates a static caching scheme to reuse output featuremaps and therefore reduces the need for computationally expensive operations. This solution works across different models and modalities, can be easily dropped into existing Diffusion Transformer pipelines, can be stacked on different solvers, and requires no additional training or datasets. **SmoothCache** consistently outperforms various solvers designed to accelerate the diffusion process, while matching or surpassing the performance of existing modality-specific caching techniques.
 
-> 🥯[[Arxiv]](https://arxiv.org/abs/2411.10510)
+```> 🥯[[Arxiv]](https://arxiv.org/abs/2411.10510)```
 
 ![Illustration of SmoothCache. When the layer representation loss obtained from the calibration pass is below some threshold α, the corresponding layer is cached and used in place of the same computation on a future timestep. The figure on the left shows how the layer representation error impacts whether certain layers are eligible for caching. The error of the attention (attn) layer is higher in earlier timesteps, so our schedule caches the later timesteps accordingly. The figure on the right shows the application of the caching schedule to the DiT-XL architecture. The output of the attn layer at time t − 1 is cached and re-used in place of computing FFN t − 2, since the corresponding error is below α. This cached output is introduced in the model using the properties of the residual connection.](assets/SmoothCache2.png)
 

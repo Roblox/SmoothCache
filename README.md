@@ -1,9 +1,8 @@
 # SmoothCache: A Universal Inference Acceleration Technique for Diffusion Transformers
 
 <div align="center" style="line-height: 1;">
-    <a href="https://arxiv.org/pdf/2411.10510" target="_blank"><img src="https://img.shields.io/badge/ArXiv-Paper-b5212f.svg?logo=arxiv" height="22px"></a>
+   <a href="https://arxiv.org/pdf/2411.10510" target="_blank"><img src="https://img.shields.io/badge/ArXiv-Paper-b5212f.svg?logo=arxiv" height="22px"></a>
   <a href="https://github.com/Roblox/SmoothCache/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-green" alt="License"></a>
-<div align="center" style="line-height: 1;">
 </div>
 
 
